@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Дэшборд{% endblock %}
+{% block content %}
+<h1>Мониторинг заявок{% if g.view_only %} <span class="muted">(режим просмотра)</span>{% endif %}</h1>
+
+<form method="get" class="filters">
+  {% if view_key %}<input type="hidden" name="key" value="{{ view_key }}">{% endif %}
+  <div class="f">
+    <label>С даты</label>
+    <input type="date" name="from" value="{{ date_from }}">
+  </div>
+  <div class="f">
+    <label>По дату</label>
+    <input type="date" name="to" value="{{ date_to }}">
+  </div>
+  <div class="f">
+    <label>Отдел</label>
+    <select name="department">
+      <option value="">Все</option>
+      {% for d in departments %}
+      <option value="{{ d['id'] }}"
+        {{ 'selected' if request.args.get('department') == d['id']|string }}>{{ d['name'] }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="f">
+    <label>Служба</label>
+    <select name="service">
+      <option value="">Все</option>
+      {% for s in services %}
+      <option value="{{ s['id'] }}"
+        {{ 'selected' if request.args.get('service') == s['id']|string }}>{{ s['name'] }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="f">
+    <label>Статус</label>
+    <select name="status">
+      <option value="">Все</option>
+      {% for st in ('new', 'in_progress', 'done', 'confirmed', 'rejected') %}
+      <option value="{{ st }}"
+        {{ 'selected' if request.args.get('status') == st }}>{{ st|status_label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit" class="btn btn-secondary">Применить</button>
+  <a class="btn btn-secondary btn-sm"
+     href="{{ url_for('dashboard.export_csv', **request.args) }}">Экспорт CSV</a>
+  <a class="btn btn-secondary btn-sm"
+     href="{{ url_for('dashboard.export_xlsx', **request.args) }}">Экспорт Excel</a>
+</form>
+
+<div class="stat-row">
+  <div class="stat"><div class="num">{{ counters['total'] }}</div><div class="lbl">Всего заявок</div></div>
+  <div class="stat"><div class="num">{{ counters['new'] }}</div><div class="lbl">Новые</div></div>
+  <div class="stat"><div class="num">{{ counters['in_progress'] }}</div><div class="lbl">В работе</div></div>
+  <div class="stat stat-red"><div class="num">{{ counters['overdue'] }}</div><div class="lbl">Просрочено</div></div>
+  <div class="stat"><div class="num">{{ counters['done'] }}</div><div class="lbl">Ждут подтверждения</div></div>
+  <div class="stat stat-green"><div class="num">{{ counters['confirmed'] }}</div><div class="lbl">Подтверждено</div></div>
+  <div class="stat"><div class="num">{{ counters['done_late'] }}</div><div class="lbl">Выполнено с опозданием</div></div>
+  <div class="stat"><div class="num">{{ counters['returned'] }}</div><div class="lbl">Возвраты в работу</div></div>
+  <div class="stat"><div class="num">{{ counters['rejected'] }}</div><div class="lbl">Отклонено</div></div>
+</div>
+
+<div class="charts">
+  <div class="chart-card"><h3>Заявки по отделам (топ-15, красным — просроченные)</h3>
+    <canvas id="chart-departments"></canvas></div>
+  <div class="chart-card"><h3>Заявки по службам-исполнителям</h3>
+    <canvas id="chart-services"></canvas></div>
+  <div class="chart-card"><h3>По категориям</h3>
+    <canvas id="chart-categories"></canvas></div>
+  <div class="chart-card"><h3>Динамика подачи (30 дней)</h3>
+    <canvas id="chart-days"></canvas></div>
+</div>
+
+<h2>Заявки ({{ rows|length }})</h2>
+<div class="table-wrap">
+<table class="list">
+  <tr>
+    <th>№</th><th>Подана</th><th>Срок</th><th>Статус</th><th>Приоритет</th>
+    <th>Отдел</th><th>Категория</th><th>Служба</th><th>Заявитель</th><th>Описание</th>
+  </tr>
+  {% for r in rows %}
+  <tr class="{% if states[r['id']] == 'overdue' %}row-overdue{% elif states[r['id']] == 'near' %}row-near{% endif %}">
+    <td class="nowrap">
+      {% if not g.view_only %}<a href="{{ url_for('work.detail', request_id=r['id']) }}">№{{ r['id'] }}</a>
+      {% else %}№{{ r['id'] }}{% endif %}
+    </td>
+    <td class="nowrap">{{ r['created_at']|dt }}</td>
+    <td class="nowrap">{{ r['due_at']|dt }}
+      {% if states[r['id']] == 'overdue' %}<br><span class="badge badge-overdue">просрочена</span>
+      {% elif states[r['id']] == 'near' %}<br><span class="badge badge-near">истекает</span>{% endif %}
+    </td>
+    <td><span class="badge badge-{{ r['status'] }}">{{ r['status']|status_label }}</span>
+      {% if late[r['id']] %}<br><span class="badge badge-late">с опозданием</span>{% endif %}
+    </td>
+    <td>{{ r['priority_name'] }}</td>
+    <td>{{ r['department_name'] }}</td>
+    <td>{{ r['category_name'] }}</td>
+    <td>{{ r['service_name'] }}</td>
+    <td>{{ r['applicant_name'] }}</td>
+    <td>{{ r['description'][:70] }}{% if r['description']|length > 70 %}…{% endif %}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="10" class="muted">Заявок за выбранный период нет</td></tr>
+  {% endfor %}
+</table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
+<script>
+  window.DASHBOARD_DATA_URL = {{ url_for('dashboard.data', **request.args)|tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

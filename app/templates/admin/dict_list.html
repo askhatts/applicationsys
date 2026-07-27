@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}{{ cfg['title'] }}{% endblock %}
+
+{# Инпуты привязываются к форме за пределами таблицы через атрибут form="id" —
+   вкладывать <form> в строки таблицы нельзя. #}
+{% macro fields_inputs(row, form_id) %}
+  <td><input form="{{ form_id }}" type="text" name="name"
+             value="{{ row['name'] if row else '' }}" required></td>
+  {% if dict_name == 'departments' %}
+  <td>
+    <select form="{{ form_id }}" name="grp">
+      {% for code, label in group_labels.items() %}
+      <option value="{{ code }}" {{ 'selected' if row and row['grp'] == code }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </td>
+  {% endif %}
+  {% if dict_name == 'categories' %}
+  <td>
+    <select form="{{ form_id }}" name="service_id" required>
+      {% for s in services %}
+      <option value="{{ s['id'] }}" {{ 'selected' if row and row['service_id'] == s['id'] }}>{{ s['name'] }}</option>
+      {% endfor %}
+    </select>
+  </td>
+  {% endif %}
+  {% if dict_name == 'priorities' %}
+  <td><input form="{{ form_id }}" type="number" name="sla_hours" min="1" style="width:90px"
+             value="{{ row['sla_hours'] if row else '' }}" required></td>
+  {% endif %}
+  {% if dict_name != 'services' %}
+  <td><input form="{{ form_id }}" type="number" name="sort_order" style="width:70px"
+             value="{{ row['sort_order'] if row else 0 }}"></td>
+  {% endif %}
+{% endmacro %}
+
+{% block content %}
+<p><a href="{{ url_for('admin.index') }}">← Админка</a></p>
+<h1>{{ cfg['title'] }}</h1>
+
+<div class="table-wrap">
+<table class="list">
+  <tr>
+    <th>Название</th>
+    {% if dict_name == 'departments' %}<th>Группа</th>{% endif %}
+    {% if dict_name == 'categories' %}<th>Служба-исполнитель</th>{% endif %}
+    {% if dict_name == 'priorities' %}<th>Срок, часов</th>{% endif %}
+    {% if dict_name != 'services' %}<th>Порядок</th>{% endif %}
+    <th>Активна</th><th></th>
+  </tr>
+  {% for row in rows %}
+  <tr {% if not row['is_active'] %}style="opacity:.5"{% endif %}>
+    {{ fields_inputs(row, 'edit-' ~ row['id']) }}
+    <td>{{ 'Да' if row['is_active'] else 'Нет' }}</td>
+    <td class="nowrap">
+      <button form="edit-{{ row['id'] }}" type="submit"
+              class="btn btn-sm btn-secondary">Сохранить</button>
+      <button form="toggle-{{ row['id'] }}" type="submit"
+              class="btn btn-sm {{ 'btn-danger' if row['is_active'] else 'btn-success' }}">
+        {{ 'Деактивировать' if row['is_active'] else 'Активировать' }}</button>
+    </td>
+  </tr>
+  {% endfor %}
+  <tr>
+    {{ fields_inputs(none, 'add-form') }}
+    <td>—</td>
+    <td><button form="add-form" type="submit" class="btn btn-sm">Добавить</button></td>
+  </tr>
+</table>
+</div>
+
+{% for row in rows %}
+<form id="edit-{{ row['id'] }}" method="post"
+      action="{{ url_for('admin.dict_edit', dict_name=dict_name, row_id=row['id']) }}">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}"></form>
+<form id="toggle-{{ row['id'] }}" method="post"
+      action="{{ url_for('admin.dict_toggle', dict_name=dict_name, row_id=row['id']) }}">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}"></form>
+{% endfor %}
+<form id="add-form" method="post" action="{{ url_for('admin.dict_add', dict_name=dict_name) }}">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}"></form>
+
+<p class="hint">Записи не удаляются, а деактивируются — на них могут ссылаться
+  существующие заявки. Деактивированные не показываются в форме подачи.</p>
+{% endblock %}

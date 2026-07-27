@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Настройки{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('admin.index') }}">← Админка</a></p>
+<h1>Настройки</h1>
+
+<div class="card" style="max-width:560px">
+  <form method="post">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div style="display:grid; gap:12px">
+      <div>
+        <label>Название организации</label>
+        <input type="text" name="org_name" value="{{ org_name_value }}">
+      </div>
+      <div>
+        <label>Порог «срок истекает» (доля оставшегося SLA)</label>
+        <input type="text" name="near_due_fraction" value="{{ near_due_fraction }}">
+        <div class="hint">0.25 = подсвечивать жёлтым, когда осталось меньше
+          четверти срока (но не меньше 1 часа)</div>
+      </div>
+      <div><button type="submit" class="btn">Сохранить</button></div>
+    </div>
+  </form>
+</div>
+
+<div class="card" style="max-width:560px">
+  <h2 class="mt0">Ключ просмотра дэшборда</h2>
+  <p>Ссылка для руководства (просмотр без входа, без действий):</p>
+  <p><code>/dashboard?key={{ view_token }}</code></p>
+  <form method="post">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="regen_token">
+    <button type="submit" class="btn btn-danger btn-sm">Перегенерировать ключ
+      (старая ссылка перестанет работать)</button>
+  </form>
+</div>
+{% endblock %}

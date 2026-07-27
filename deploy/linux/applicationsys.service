@@ -1,0 +1,21 @@
+[Unit]
+Description=Заявки на ремонт (Flask + waitress)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/applicationsys
+Environment=PATH=/opt/applicationsys/.venv/bin
+ExecStart=/opt/applicationsys/.venv/bin/waitress-serve --listen=127.0.0.1:8000 run_prod:app
+Restart=on-failure
+RestartSec=3
+
+# Небольшая изоляция процесса — не даёт писать за пределы каталога проекта.
+NoNewPrivileges=true
+ProtectSystem=full
+ReadWritePaths=/opt/applicationsys/instance /opt/applicationsys/backups
+
+[Install]
+WantedBy=multi-user.target

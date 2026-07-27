@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Заявка №{{ req['id'] }}{% endblock %}
+{% block content %}
+<h1>Заявка №{{ req['id'] }}
+  <span class="badge badge-{{ req['status'] }}">{{ req['status']|status_label }}</span>
+  {% if dl_state == 'overdue' %}<span class="badge badge-overdue">Просрочена</span>
+  {% elif dl_state == 'near' %}<span class="badge badge-near">Срок истекает</span>{% endif %}
+</h1>
+
+{% if just_created %}
+<div class="token-box">
+  Заявка принята! Ваш код для отслеживания: <code>{{ req['track_token'] }}</code><br>
+  Сохраните эту страницу в закладки или запишите код — по нему вы сможете
+  проверить статус и подтвердить исполнение.
+</div>
+{% endif %}
+
+<div class="card">
+  <dl class="props">
+    <dt>Дата подачи</dt><dd>{{ req['created_at']|dt }}</dd>
+    <dt>Срок исполнения</dt><dd><strong>{{ req['due_at']|dt }}</strong></dd>
+    <dt>Отдел</dt><dd>{{ req['department_name'] }}</dd>
+    <dt>Категория</dt><dd>{{ req['category_name'] }}</dd>
+    <dt>Служба-исполнитель</dt><dd>{{ req['service_name'] }}</dd>
+    <dt>Приоритет</dt><dd>{{ req['priority_name'] }}</dd>
+    <dt>Описание</dt><dd>{{ req['description'] }}</dd>
+    {% if req['location'] %}<dt>Место</dt><dd>{{ req['location'] }}</dd>{% endif %}
+    <dt>Заявитель</dt><dd>{{ req['applicant_name'] }} ({{ req['applicant_contact'] }})</dd>
+    {% if req['done_at'] %}
+      <dt>Выполнена</dt><dd>{{ req['done_at']|dt }}</dd>
+      <dt>Что сделано</dt><dd>{{ req['done_comment'] }}</dd>
+    {% endif %}
+  </dl>
+</div>
+
+{% if req['status'] == 'done' %}
+<div class="card">
+  <h2 class="mt0">Подтверждение исполнения</h2>
+  <p>Исполнитель отметил заявку выполненной. Пожалуйста, подтвердите, что работа
+     действительно выполнена, либо верните заявку в работу.</p>
+  <form method="post" action="{{ url_for('public.confirm', token=req['track_token']) }}">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <button type="submit" class="btn btn-success">✔ Подтверждаю исполнение</button>
+  </form>
+  <details class="action-box">
+    <summary>Не выполнено — вернуть в работу</summary>
+    <form method="post" action="{{ url_for('public.return_', token=req['track_token']) }}"
+          class="inner">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <div>
+        <label>Что именно не выполнено? <span class="req">*</span></label>
+        <textarea name="comment" required minlength="5"
+                  placeholder="Опишите причину возврата"></textarea>
+      </div>
+      <div><button type="submit" class="btn btn-danger">Вернуть в работу</button></div>
+    </form>
+  </details>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2 class="mt0">История заявки</h2>
+  <ul class="history">
+    {% for h in history %}
+    <li>
+      <div><strong>{{ h['action']|action_label }}</strong> — {{ h['actor_name'] }}</div>
+      <div class="h-when">{{ h['created_at']|dt }}</div>
+      {% if h['due_before'] and h['due_after'] %}
+      <div class="hint">Срок: {{ h['due_before']|dt }} → {{ h['due_after']|dt }}</div>
+      {% endif %}
+      {% if h['comment'] %}<div class="h-comment">{{ h['comment'] }}</div>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}

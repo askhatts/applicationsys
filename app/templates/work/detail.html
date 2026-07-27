@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Заявка №{{ req['id'] }}{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('work.index') }}">← К списку заявок</a></p>
+<h1>Заявка №{{ req['id'] }}
+  <span class="badge badge-{{ req['status'] }}">{{ req['status']|status_label }}</span>
+  {% if dl_state == 'overdue' %}<span class="badge badge-overdue">Просрочена</span>
+  {% elif dl_state == 'near' %}<span class="badge badge-near">Срок истекает</span>{% endif %}
+</h1>
+
+<div class="card">
+  <dl class="props">
+    <dt>Дата подачи</dt><dd>{{ req['created_at']|dt }}</dd>
+    <dt>Срок исполнения</dt><dd><strong>{{ req['due_at']|dt }}</strong></dd>
+    <dt>Отдел-заявитель</dt><dd>{{ req['department_name'] }}</dd>
+    <dt>Категория</dt><dd>{{ req['category_name'] }}</dd>
+    <dt>Служба-исполнитель</dt><dd>{{ req['service_name'] }}</dd>
+    <dt>Приоритет</dt><dd>{{ req['priority_name'] }} ({{ req['sla_hours'] }} ч)</dd>
+    <dt>Описание</dt><dd>{{ req['description'] }}</dd>
+    {% if req['location'] %}<dt>Место</dt><dd>{{ req['location'] }}</dd>{% endif %}
+    <dt>Заявитель</dt><dd>{{ req['applicant_name'] }} ({{ req['applicant_contact'] }})</dd>
+    {% if req['accepted_at'] %}
+      <dt>Принята</dt><dd>{{ req['accepted_at']|dt }}
+        {% if req['accepted_by_name'] %}— {{ req['accepted_by_name'] }}{% endif %}</dd>
+    {% endif %}
+    {% if req['done_at'] %}
+      <dt>Выполнена</dt><dd>{{ req['done_at']|dt }}</dd>
+      <dt>Что сделано</dt><dd>{{ req['done_comment'] }}</dd>
+    {% endif %}
+    <dt>Код отслеживания</dt>
+    <dd><a href="{{ url_for('public.track', token=req['track_token']) }}">{{ req['track_token'] }}</a>
+      <span class="hint">(ссылка заявителя для подтверждения)</span></dd>
+  </dl>
+</div>
+
+{% if req['status'] == 'new' %}
+<div class="card">
+  <h2 class="mt0">Принять в работу</h2>
+  <form method="post" action="{{ url_for('work.accept', request_id=req['id']) }}">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <button type="submit" class="btn">Принять (срок: {{ req['due_at']|dt }})</button>
+    <details class="action-box">
+      <summary>Принять с изменением срока</summary>
+      <div class="inner">
+        <div>
+          <label>Новый срок <span class="req">*</span></label>
+          <input type="datetime-local" name="new_due">
+        </div>
+        <div>
+          <label>Причина изменения срока <span class="req">*</span></label>
+          <input type="text" name="comment" placeholder="Например: ожидание запчастей">
+        </div>
+        <div><button type="submit" class="btn">Принять с новым сроком</button></div>
+      </div>
+    </details>
+  </form>
+</div>
+{% endif %}
+
+{% if req['status'] == 'in_progress' %}
+<div class="card">
+  <h2 class="mt0">Отметить выполненной</h2>
+  <form method="post" action="{{ url_for('work.done', request_id=req['id']) }}">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div style="display:grid; gap:10px">
+      <div>
+        <label>Что было сделано <span class="req">*</span></label>
+        <textarea name="comment" required minlength="5"
+          placeholder="Кратко опишите выполненные работы"></textarea>
+      </div>
+      <div><button type="submit" class="btn btn-success">Выполнена — на подтверждение заявителю</button></div>
+    </div>
+  </form>
+  <details class="action-box">
+    <summary>Перенести срок исполнения</summary>
+    <form method="post" action="{{ url_for('work.due', request_id=req['id']) }}" class="inner">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <div>
+        <label>Новый срок <span class="req">*</span></label>
+        <input type="datetime-local" name="new_due" required>
+      </div>
+      <div>
+        <label>Причина переноса <span class="req">*</span></label>
+        <input type="text" name="comment" required>
+      </div>
+      <div><button type="submit" class="btn btn-secondary">Перенести срок</button></div>
+    </form>
+  </details>
+</div>
+{% endif %}
+
+{% if req['status'] in ('new', 'in_progress') %}
+<details class="action-box">
+  <summary>Отклонить заявку</summary>
+  <form method="post" action="{{ url_for('work.reject', request_id=req['id']) }}" class="inner">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div>
+      <label>Причина отклонения <span class="req">*</span></label>
+      <textarea name="comment" required minlength="5"></textarea>
+    </div>
+    <div><button type="submit" class="btn btn-danger">Отклонить</button></div>
+  </form>
+</details>
+{% endif %}
+
+{% if req['status'] == 'done' %}
+<div class="card">
+  <p class="muted">Заявка ожидает подтверждения заявителем по его ссылке отслеживания.</p>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2 class="mt0">История</h2>
+  <ul class="history">
+    {% for h in history %}
+    <li>
+      <div><strong>{{ h['action']|action_label }}</strong> — {{ h['actor_name'] }}</div>
+      <div class="h-when">{{ h['created_at']|dt }}</div>
+      {% if h['due_before'] and h['due_after'] %}
+      <div class="hint">Срок: {{ h['due_before']|dt }} → {{ h['due_after']|dt }}</div>
+      {% endif %}
+      {% if h['comment'] %}<div class="h-comment">{{ h['comment'] }}</div>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}

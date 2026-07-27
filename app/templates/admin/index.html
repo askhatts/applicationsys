@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Админка{% endblock %}
+{% block content %}
+<h1>Администрирование</h1>
+<div class="card">
+  <ul style="line-height:2">
+    {% for name, cfg in dicts.items() %}
+    <li><a href="{{ url_for('admin.dict_list', dict_name=name) }}">{{ cfg['title'] }}</a></li>
+    {% endfor %}
+    <li><a href="{{ url_for('admin.users') }}">Пользователи (исполнители и администраторы)</a></li>
+    <li><a href="{{ url_for('admin.settings') }}">Настройки</a></li>
+  </ul>
+</div>
+{% endblock %}

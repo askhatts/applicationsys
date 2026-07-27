@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Подать заявку{% endblock %}
+{% block content %}
+<h1>Подача заявки на ремонт / обслуживание</h1>
+
+<div class="card">
+  <form method="post" action="{{ url_for('public.submit') }}">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      <div>
+        <label>Отдел-заявитель <span class="req">*</span></label>
+        <select name="department_id" required>
+          <option value="">— выберите отдел —</option>
+          {% for group_label, items in dept_groups %}
+          <optgroup label="{{ group_label }}">
+            {% for d in items %}
+            <option value="{{ d['id'] }}"
+              {{ 'selected' if form.get('department_id')|string == d['id']|string }}>
+              {{ d['name'] }}</option>
+            {% endfor %}
+          </optgroup>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Категория поломки <span class="req">*</span></label>
+        <select name="category_id" required>
+          <option value="">— выберите категорию —</option>
+          {% for c in categories %}
+          <option value="{{ c['id'] }}"
+            {{ 'selected' if form.get('category_id')|string == c['id']|string }}>
+            {{ c['name'] }} ({{ c['service_name'] }})</option>
+          {% endfor %}
+        </select>
+        <div class="hint">В скобках — служба, которая будет исполнять заявку</div>
+      </div>
+      <div>
+        <label>Приоритет <span class="req">*</span></label>
+        <select name="priority_id" required>
+          <option value="">— выберите приоритет —</option>
+          {% for p in priorities %}
+          <option value="{{ p['id'] }}"
+            {{ 'selected' if form.get('priority_id')|string == p['id']|string }}>
+            {{ p['name'] }} — срок {{ p['sla_hours'] }} ч</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Место / кабинет</label>
+        <input type="text" name="location" maxlength="200"
+               value="{{ form.get('location', '') }}"
+               placeholder="Например: 2 этаж, каб. 214">
+      </div>
+      <div class="full">
+        <label>Описание проблемы <span class="req">*</span></label>
+        <textarea name="description" required minlength="10" maxlength="2000"
+          placeholder="Что сломалось, как проявляется, с какого времени...">{{ form.get('description', '') }}</textarea>
+      </div>
+      <div>
+        <label>ФИО заявителя <span class="req">*</span></label>
+        <input type="text" name="applicant_name" required maxlength="150"
+               value="{{ form.get('applicant_name', '') }}">
+      </div>
+      <div>
+        <label>Контакт (телефон / внутр. номер) <span class="req">*</span></label>
+        <input type="text" name="applicant_contact" required maxlength="100"
+               value="{{ form.get('applicant_contact', '') }}">
+      </div>
+    </div>
+    <p><button type="submit" class="btn">Подать заявку</button></p>
+    <p class="hint">Дата и время подачи фиксируются автоматически. После подачи вы
+      получите номер заявки и ссылку для отслеживания и подтверждения исполнения.</p>
+  </form>
+</div>
+
+<div class="card">
+  <h2 class="mt0">Проверить статус заявки</h2>
+  <form method="post" action="{{ url_for('public.find') }}" class="filters">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div class="f" style="flex:1">
+      <input type="text" name="token" placeholder="Введите код заявки" required>
+    </div>
+    <button type="submit" class="btn btn-secondary">Найти</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Вход{% endblock %}
+{% block content %}
+<h1>Вход для исполнителей и администратора</h1>
+<div class="card" style="max-width: 420px">
+  <form method="post">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div style="display:grid; gap:12px">
+      <div>
+        <label>Логин</label>
+        <input type="text" name="login" required autofocus autocomplete="username">
+      </div>
+      <div>
+        <label>Пароль</label>
+        <input type="password" name="password" required autocomplete="current-password">
+      </div>
+      <div><button type="submit" class="btn">Войти</button></div>
+    </div>
+  </form>
+  <p class="hint">Для подачи заявки вход не нужен —
+    <a href="{{ url_for('public.index') }}">вернуться к форме подачи</a>.</p>
+</div>
+{% endblock %}

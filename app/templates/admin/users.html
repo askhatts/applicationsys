@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Пользователи{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('admin.index') }}">← Админка</a></p>
+<h1>Пользователи</h1>
+
+<div class="table-wrap">
+<table class="list">
+  <tr><th>Логин</th><th>ФИО</th><th>Роль</th><th>Служба</th><th>Активен</th><th></th></tr>
+  {% for u in rows %}
+  <tr {% if not u['is_active'] %}style="opacity:.5"{% endif %}>
+    <td>{{ u['login'] }}</td>
+    <td>{{ u['full_name'] }}</td>
+    <td>{{ 'Администратор' if u['role'] == 'admin' else 'Исполнитель' }}</td>
+    <td>{{ u['service_name'] or '—' }}</td>
+    <td>{{ 'Да' if u['is_active'] else 'Нет' }}</td>
+    <td class="nowrap">
+      <button form="reset-{{ u['id'] }}" type="submit"
+              class="btn btn-sm btn-secondary">Сбросить пароль</button>
+      {% if u['id'] != g.user['id'] %}
+      <button form="usertoggle-{{ u['id'] }}" type="submit"
+              class="btn btn-sm {{ 'btn-danger' if u['is_active'] else 'btn-success' }}">
+        {{ 'Отключить' if u['is_active'] else 'Включить' }}</button>
+      {% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+</div>
+
+{% for u in rows %}
+<form id="reset-{{ u['id'] }}" method="post"
+      action="{{ url_for('admin.user_reset_password', user_id=u['id']) }}">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}"></form>
+<form id="usertoggle-{{ u['id'] }}" method="post"
+      action="{{ url_for('admin.user_toggle', user_id=u['id']) }}">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}"></form>
+{% endfor %}
+
+<div class="card">
+  <h2 class="mt0">Добавить пользователя</h2>
+  <form method="post" action="{{ url_for('admin.user_add') }}">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      <div>
+        <label>Логин <span class="req">*</span></label>
+        <input type="text" name="login" required maxlength="50">
+      </div>
+      <div>
+        <label>ФИО <span class="req">*</span></label>
+        <input type="text" name="full_name" required maxlength="150">
+      </div>
+      <div>
+        <label>Роль</label>
+        <select name="role">
+          <option value="executor">Исполнитель</option>
+          <option value="admin">Администратор</option>
+        </select>
+      </div>
+      <div>
+        <label>Служба (для исполнителя)</label>
+        <select name="service_id">
+          <option value="">—</option>
+          {% for s in services %}
+          <option value="{{ s['id'] }}">{{ s['name'] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Пароль</label>
+        <input type="text" name="password" placeholder="Пусто — сгенерировать">
+      </div>
+    </div>
+    <p><button type="submit" class="btn">Создать</button></p>
+  </form>
+</div>
+{% endblock %}
