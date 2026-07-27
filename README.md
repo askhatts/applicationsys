@@ -75,42 +75,67 @@ netsh advfirewall firewall add rule name="Заявки на ремонт" dir=in
    Планировщик (например, ежедневно ночью). Вся база — один файл
    `instance\app.db`.
 
-## Развёртывание на VPS (публичный поддомен)
+## Развёртывание на VPS
 
-Два готовых сценария в `deploy/linux/` — выберите по ситуации на сервере.
+### Боевое окружение: https://oncomap-abai.kz/requests/
 
-### Вариант А: сервер уже занят Docker-стеком с Caddy (наш случай)
+Изначально планировался отдельный поддомен `requests.oncomap-abai.kz`, но
+DNS-панель хостинга (gohost.kz, WHMCS DNS Manager 2) не применяла новые
+записи к живым нейм-серверам — SOA serial зоны не менялся при сохранении
+через веб-интерфейс (похоже на баг/особенность их бэкенда: панель
+подтверждает «успешно сохранено», но реальный файл зоны не перегенерируется).
+Поэтому приложение подключено **путём** на уже рабочем домене, без новых
+DNS-записей: `https://oncomap-abai.kz/requests/`.
 
-Если на VPS уже работает другой проект в Docker с Caddy на портах 80/443
-(так и есть на боевом сервере `oncomap-abai.kz` — там свой backend + Caddy),
-ставить nginx нельзя — порты заняты. Вместо этого наше приложение поднимается
-отдельным Docker-контейнером в существующей сети `deploy_default`, а в конец
-их `Caddyfile` дописывается один site-блок для `requests.oncomap-abai.kz`.
-Существующий проект (`deploy-backend-1`, `deploy-caddy-1`) не трогается и не
-перезапускается — только «мягкая» перезагрузка конфига Caddy (`caddy reload`,
-без даунтайма).
+На сервере уже работает другой проект в Docker (Caddy на портах 80/443 +
+свой backend, каталог `/opt/onco`). Наше приложение поднято отдельным
+Docker-контейнером `requests_app` в их сети `deploy_default`, а site-блок
+`{$SITE_DOMAIN}` в `/opt/onco/deploy/Caddyfile` заменён так, чтобы `/requests*`
+обслуживался нашим приложением БЕЗ пароля, а весь остальной сайт — как раньше,
+за basic_auth. Существующий проект (`deploy-backend-1`) не перезапускался.
 
 ```bash
 git clone https://github.com/askhatts/applicationsys.git /opt/applicationsys
 bash /opt/applicationsys/deploy/linux/setup_docker.sh
 ```
 
-Что делает скрипт: собирает образ (`Dockerfile` в корне репозитория),
-запускает контейнер `requests_app` (порт 8000 виден только внутри
-`deploy_default`, наружу не публикуется), дописывает блок из
-`deploy/linux/caddy-site-block.conf` в `/opt/onco/deploy/Caddyfile` (с
-резервной копией файла перед изменением) и делает `caddy reload`. Caddy сам
-получит сертификат Let's Encrypt для нового поддомена, как только DNS
-обновится — ничего дополнительно перезапускать не нужно.
+Скрипт собирает образ (`Dockerfile` в корне репозитория) и (пере)запускает
+контейнер `requests_app` (порт 8000 виден только внутри `deploy_default`,
+наружу не публикуется). Правка `Caddyfile` — отдельный ручной шаг (делается
+один раз): содержимое нужного site-блока — в
+`deploy/linux/caddy-site-block.conf`, применяется так:
+```bash
+# заменить весь блок {$SITE_DOMAIN} { ... } в /opt/onco/deploy/Caddyfile
+# содержимым из deploy/linux/caddy-site-block.conf, затем:
+docker exec deploy-caddy-1 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+docker exec deploy-caddy-1 caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+```
+
+Важно: приложению для корректной генерации ссылок (под путём `/requests`,
+а не с корня) нужен заголовок `X-Forwarded-Prefix: /requests` от Caddy —
+он уже прописан в `caddy-site-block.conf` (`header_up X-Forwarded-Prefix /requests`)
+и обрабатывается в `run_prod.py` (`PrefixMiddleware`).
 
 Обновление после изменений в репозитории:
 ```bash
 cd /opt/applicationsys && git pull && \
   docker compose -f deploy/linux/docker-compose.requests.yml up -d --build
 ```
-Логи: `docker logs -f requests_app`.
+Логи: `docker logs -f requests_app`. Бэкап: `deploy/linux/backup_db.sh` в cron.
 
-### Вариант Б: чистый сервер, порты 80/443 свободны
+### Альтернатива: отдельный поддомен (если DNS-панель работает нормально)
+
+Если на вашем хостинге DNS-изменения применяются сразу (не как у нас с
+gohost.kz), можно развернуть на отдельном поддомене — тогда basic_auth
+основного сайта вообще не пересекается с нашим приложением. Добавьте A-запись
+`requests` → IP сервера, дождитесь `dig +short requests.example.kz` = IP
+сервера, и используйте обычный site-блок Caddy (`reverse_proxy
+requests_app:8000` без `handle_path`/префикса) на этом поддомене — тогда
+`X-Forwarded-Prefix` и `PrefixMiddleware` не нужны.
+
+### Вариант для чистого сервера (без стороннего Docker-стека)
+
+Если на VPS ничего ещё не занимает порты 80/443:
 
 ```bash
 git clone https://github.com/askhatts/applicationsys.git /tmp/appsys-src
@@ -119,16 +144,7 @@ bash /tmp/appsys-src/deploy/linux/setup_vps.sh
 Скрипт ставит зависимости, клонирует репозиторий в `/opt/applicationsys`,
 создаёт venv, инициализирует БД, поднимает systemd-службу `applicationsys`
 (waitress на 127.0.0.1:8000), настраивает nginx-реверс-прокси и получает
-сертификат через certbot.
-
-Бэкап (для обоих вариантов): `deploy/linux/backup_db.sh` в cron.
-Обновление (вариант Б): `deploy/linux/update.sh`.
-
-### DNS (обязательно для обоих вариантов)
-
-В панели домена (gohost.kz → «Домены» → DNS-записи) добавьте A-запись
-`requests` → IP вашего VPS. Проверить: `dig +short requests.oncomap-abai.kz`
-должен вернуть IP сервера. Без этого сертификат Let's Encrypt не выпустится.
+сертификат через certbot. Обновление: `deploy/linux/update.sh`.
 
 ### Публичный доступ: на что обратить внимание
 
