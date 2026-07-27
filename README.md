@@ -77,28 +77,58 @@ netsh advfirewall firewall add rule name="Заявки на ремонт" dir=in
 
 ## Развёртывание на VPS (публичный поддомен)
 
-Готовый комплект — в `deploy/linux/`: systemd-служба, конфиг nginx, скрипты
-установки/обновления/бэкапа для Ubuntu/Debian.
+Два готовых сценария в `deploy/linux/` — выберите по ситуации на сервере.
 
-1. **DNS**: в панели домена (gohost.kz → «Домены» → DNS-записи) добавьте
-   A-запись `requests` → IP вашего VPS. Проверить: `dig +short requests.oncomap-abai.kz`
-   должен вернуть IP сервера.
-2. **На сервере** (по SSH, пользователь с `sudo`):
-   ```bash
-   git clone https://github.com/askhatts/applicationsys.git /tmp/appsys-src
-   bash /tmp/appsys-src/deploy/linux/setup_vps.sh
-   ```
-   Скрипт ставит зависимости, клонирует репозиторий в `/opt/applicationsys`,
-   создаёт venv, инициализирует БД, поднимает systemd-службу `applicationsys`
-   (waitress на 127.0.0.1:8000), настраивает nginx-реверс-прокси и получает
-   бесплатный SSL-сертификат через Let's Encrypt. Выполняйте блоками, не одной
-   командой — сверяйтесь с выводом каждого шага.
-3. **Бэкап**: `deploy/linux/backup_db.sh` в cron (пример — в самом файле).
-4. **Обновление** после изменений в репозитории: `deploy/linux/update.sh`
-   (git pull + перезапуск службы).
+### Вариант А: сервер уже занят Docker-стеком с Caddy (наш случай)
 
-Логи приложения: `sudo journalctl -u applicationsys -f`.
-Логи nginx: `/var/log/nginx/error.log`.
+Если на VPS уже работает другой проект в Docker с Caddy на портах 80/443
+(так и есть на боевом сервере `oncomap-abai.kz` — там свой backend + Caddy),
+ставить nginx нельзя — порты заняты. Вместо этого наше приложение поднимается
+отдельным Docker-контейнером в существующей сети `deploy_default`, а в конец
+их `Caddyfile` дописывается один site-блок для `requests.oncomap-abai.kz`.
+Существующий проект (`deploy-backend-1`, `deploy-caddy-1`) не трогается и не
+перезапускается — только «мягкая» перезагрузка конфига Caddy (`caddy reload`,
+без даунтайма).
+
+```bash
+git clone https://github.com/askhatts/applicationsys.git /opt/applicationsys
+bash /opt/applicationsys/deploy/linux/setup_docker.sh
+```
+
+Что делает скрипт: собирает образ (`Dockerfile` в корне репозитория),
+запускает контейнер `requests_app` (порт 8000 виден только внутри
+`deploy_default`, наружу не публикуется), дописывает блок из
+`deploy/linux/caddy-site-block.conf` в `/opt/onco/deploy/Caddyfile` (с
+резервной копией файла перед изменением) и делает `caddy reload`. Caddy сам
+получит сертификат Let's Encrypt для нового поддомена, как только DNS
+обновится — ничего дополнительно перезапускать не нужно.
+
+Обновление после изменений в репозитории:
+```bash
+cd /opt/applicationsys && git pull && \
+  docker compose -f deploy/linux/docker-compose.requests.yml up -d --build
+```
+Логи: `docker logs -f requests_app`.
+
+### Вариант Б: чистый сервер, порты 80/443 свободны
+
+```bash
+git clone https://github.com/askhatts/applicationsys.git /tmp/appsys-src
+bash /tmp/appsys-src/deploy/linux/setup_vps.sh
+```
+Скрипт ставит зависимости, клонирует репозиторий в `/opt/applicationsys`,
+создаёт venv, инициализирует БД, поднимает systemd-службу `applicationsys`
+(waitress на 127.0.0.1:8000), настраивает nginx-реверс-прокси и получает
+сертификат через certbot.
+
+Бэкап (для обоих вариантов): `deploy/linux/backup_db.sh` в cron.
+Обновление (вариант Б): `deploy/linux/update.sh`.
+
+### DNS (обязательно для обоих вариантов)
+
+В панели домена (gohost.kz → «Домены» → DNS-записи) добавьте A-запись
+`requests` → IP вашего VPS. Проверить: `dig +short requests.oncomap-abai.kz`
+должен вернуть IP сервера. Без этого сертификат Let's Encrypt не выпустится.
 
 ### Публичный доступ: на что обратить внимание
 

@@ -1,0 +1,8 @@
+.venv
+instance
+backups
+deploy/wheels
+tools
+__pycache__
+*.pyc
+.git

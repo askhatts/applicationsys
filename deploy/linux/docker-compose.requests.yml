@@ -1,0 +1,23 @@
+# Развёртывание рядом с уже работающим стеком Caddy на этом VPS.
+# Подключается к существующей сети deploy_default (её создаёт стек /opt/onco),
+# чтобы Caddy мог проксировать на этот контейнер по имени requests_app:8000.
+# НЕ поднимает свой Caddy и не занимает порты 80/443 — они уже заняты другим проектом.
+#
+# Запуск: cd /opt/applicationsys && docker compose -f deploy/linux/docker-compose.requests.yml up -d --build
+services:
+  requests_app:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    container_name: requests_app
+    networks:
+      deploy_default:
+        aliases:
+          - requests_app
+    volumes:
+      - ../../instance:/app/instance
+    restart: unless-stopped
+
+networks:
+  deploy_default:
+    external: true
