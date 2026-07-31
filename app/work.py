@@ -57,9 +57,9 @@ def index():
         params.append(request.args["priority"])
     if request.args.get("q"):
         where.append("(r.description LIKE ? OR r.applicant_name LIKE ? "
-                     "OR CAST(r.id AS TEXT) = ?)")
+                     "OR r.inventory_number LIKE ? OR CAST(r.id AS TEXT) = ?)")
         q = request.args["q"].strip()
-        params += [f"%{q}%", f"%{q}%", q]
+        params += [f"%{q}%", f"%{q}%", f"%{q}%", q]
 
     sql = BASE_QUERY
     if where:

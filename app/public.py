@@ -74,6 +74,7 @@ def submit():
             int(form["department_id"]), int(form["category_id"]),
             int(form["priority_id"]), description,
             form.get("location", "").strip(), applicant_name, applicant_contact,
+            form.get("inventory_number", "").strip(),
         )
     except ValueError as e:
         flash(str(e), "error")

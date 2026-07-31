@@ -186,9 +186,9 @@ def data():
 
 
 EXPORT_HEADERS = ["№", "Дата подачи", "Отдел", "Категория", "Служба-исполнитель",
-                  "Приоритет", "Описание", "Место", "Заявитель", "Контакт",
-                  "Статус", "Срок исполнения", "Принята", "Выполнена",
-                  "Что сделано", "Закрыта"]
+                  "Приоритет", "Описание", "Место", "Инвентарный номер",
+                  "Заявитель", "Контакт", "Статус", "Срок исполнения", "Принята",
+                  "Выполнена", "Что сделано", "Закрыта"]
 
 
 def _export_rows():
@@ -196,7 +196,8 @@ def _export_rows():
     for r in _fetch_requests():
         yield [r["id"], r["created_at"], r["department_name"], r["category_name"],
                r["service_name"], r["priority_name"], r["description"],
-               r["location"] or "", r["applicant_name"], r["applicant_contact"],
+               r["location"] or "", r["inventory_number"] or "",
+               r["applicant_name"], r["applicant_contact"],
                STATUS_LABELS.get(r["status"], r["status"]), r["due_at"],
                r["accepted_at"] or "", r["done_at"] or "",
                r["done_comment"] or "", r["closed_at"] or ""]
@@ -227,7 +228,7 @@ def export_xlsx():
     for row in _export_rows():
         ws.append(row)
     for col, width in zip(ws.columns,
-                          (6, 17, 30, 22, 28, 11, 50, 18, 22, 15, 14, 17, 17, 17, 40, 17)):
+                          (6, 17, 30, 22, 28, 11, 50, 18, 18, 22, 15, 14, 17, 17, 17, 40, 17)):
         ws.column_dimensions[col[0].column_letter].width = width
     buf = io.BytesIO()
     wb.save(buf)

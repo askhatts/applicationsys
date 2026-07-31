@@ -18,6 +18,7 @@
     <dt>Приоритет</dt><dd>{{ req['priority_name'] }} ({{ req['sla_hours'] }} ч)</dd>
     <dt>Описание</dt><dd>{{ req['description'] }}</dd>
     {% if req['location'] %}<dt>Место</dt><dd>{{ req['location'] }}</dd>{% endif %}
+    {% if req['inventory_number'] %}<dt>Инвентарный номер</dt><dd>{{ req['inventory_number'] }}</dd>{% endif %}
     <dt>Заявитель</dt><dd>{{ req['applicant_name'] }} ({{ req['applicant_contact'] }})</dd>
     {% if req['accepted_at'] %}
       <dt>Принята</dt><dd>{{ req['accepted_at']|dt }}

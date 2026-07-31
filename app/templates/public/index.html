@@ -51,6 +51,14 @@
                value="{{ form.get('location', '') }}"
                placeholder="Например: 2 этаж, каб. 214">
       </div>
+      <div>
+        <label>Инвентарный номер оборудования</label>
+        <input type="text" name="inventory_number" maxlength="100"
+               value="{{ form.get('inventory_number', '') }}"
+               placeholder="Если заявка про оборудование">
+        <div class="hint">Заполняется, если заявка касается конкретного оборудования
+          (медтехника, компьютер и т.п.) — необязательно</div>
+      </div>
       <div class="full">
         <label>Описание проблемы <span class="req">*</span></label>
         <textarea name="description" required minlength="10" maxlength="2000"

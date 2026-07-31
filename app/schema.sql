@@ -51,6 +51,7 @@ CREATE TABLE requests (
     priority_id       INTEGER NOT NULL REFERENCES priorities (id),
     description       TEXT    NOT NULL,
     location          TEXT,
+    inventory_number  TEXT,
     applicant_name    TEXT    NOT NULL,
     applicant_contact TEXT    NOT NULL,
     status            TEXT    NOT NULL DEFAULT 'new'

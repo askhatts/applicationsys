@@ -44,7 +44,7 @@ class TransitionError(Exception):
 
 
 def create_request(department_id, category_id, priority_id, description,
-                   location, applicant_name, applicant_contact):
+                   location, applicant_name, applicant_contact, inventory_number=None):
     """Создаёт заявку: служба по категории, срок по SLA приоритета.
 
     Возвращает (id, track_token).
@@ -71,12 +71,12 @@ def create_request(department_id, category_id, priority_id, description,
 
     cur = db.execute(
         "INSERT INTO requests (track_token, department_id, category_id, service_id, "
-        " priority_id, description, location, applicant_name, applicant_contact, "
-        " status, created_at, due_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?)",
+        " priority_id, description, location, inventory_number, applicant_name, "
+        " applicant_contact, status, created_at, due_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?)",
         (token, department_id, category_id, category["service_id"], priority_id,
-         description, location or None, applicant_name, applicant_contact,
-         created.strftime(DT_FMT), due.strftime(DT_FMT)),
+         description, location or None, inventory_number or None, applicant_name,
+         applicant_contact, created.strftime(DT_FMT), due.strftime(DT_FMT)),
     )
     request_id = cur.lastrowid
     db.execute(
