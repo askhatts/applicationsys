@@ -17,6 +17,7 @@
       </span>
     </a>
     <nav class="nav">
+      <a href="/">← Главное меню</a>
       <a href="{{ url_for('public.index') }}">Подать заявку</a>
       {% if g.user %}
         <a href="{{ url_for('work.index') }}">Заявки</a>
